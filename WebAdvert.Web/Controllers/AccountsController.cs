@@ -1,31 +1,29 @@
-﻿using Amazon.AspNetCore.Identity.Cognito;
-using Amazon.Extensions.CognitoAuthentication;
-using Microsoft.AspNetCore.Identity;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 using WebAdvert.Web.Models.Accounts;
+using Microsoft.AspNetCore.Identity;
+using Amazon.AspNetCore.Identity.Cognito;
+using Amazon.Extensions.CognitoAuthentication;
 
 namespace WebAdvert.Web.Controllers
 {
     public class AccountsController : Controller
     {
-        private readonly SignInManager<CognitoUser> signInManager;
-        private readonly UserManager<CognitoUser> userManager;
-        private readonly CognitoUserPool pool;
+        private readonly SignInManager<CognitoUser> _signInManager;
+        private readonly UserManager<CognitoUser> _userManager;
+        private readonly CognitoUserPool _pool;
 
-        public AccountsController(
-            SignInManager<CognitoUser> signInManager,
-            UserManager<CognitoUser> userManager,
-            CognitoUserPool pool)
+        public AccountsController(SignInManager<CognitoUser> signInManager, UserManager<CognitoUser> userManager, CognitoUserPool pool)
         {
-            this.signInManager = signInManager;
-            this.userManager = userManager;
-            this.pool = pool;
+            _signInManager = signInManager;
+            _userManager = userManager;
+            _pool = pool;
         }
 
         public async Task<IActionResult> SignUp()
         {
             var model = new SignUpViewModel();
+
             return View(model);
         }
 
@@ -34,7 +32,7 @@ namespace WebAdvert.Web.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = pool.GetUser(model.Email);
+                var user = _pool.GetUser(model.Email);
 
                 if (user.Status != null)
                 {
@@ -43,12 +41,10 @@ namespace WebAdvert.Web.Controllers
                 }
 
                 user.Attributes.Add(CognitoAttribute.Name.AttributeName, model.Email);
-                var createdUser = await userManager.CreateAsync(user, model.Password).ConfigureAwait(false);
+                var createdUser = await _userManager.CreateAsync(user, model.Password).ConfigureAwait(false);
 
                 if (createdUser.Succeeded)
-                {
-                    RedirectToAction("Confim");
-                }
+                    return RedirectToAction("Confirm");
             }
 
             return View();
@@ -65,7 +61,7 @@ namespace WebAdvert.Web.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = await userManager.FindByEmailAsync(model.Email);
+                var user = await _userManager.FindByEmailAsync(model.Email);
 
                 if (user == null)
                 {
@@ -73,18 +69,14 @@ namespace WebAdvert.Web.Controllers
                     return View(model);
                 }
 
-                var result = await (userManager as CognitoUserManager<CognitoUser>).ConfirmSignUpAsync(user, model.Code, true);
+                var result = await (_userManager as CognitoUserManager<CognitoUser>).ConfirmSignUpAsync(user, model.Code, true);
 
                 if (result.Succeeded)
-                {
                     return RedirectToAction("Index", "Home");
-                }
                 else
                 {
                     foreach (var item in result.Errors)
-                    {
                         ModelState.AddModelError(item.Code, item.Description);
-                    }
                 }
             }
 
@@ -103,10 +95,10 @@ namespace WebAdvert.Web.Controllers
         {
             if (ModelState.IsValid)
             {
-                var result = await signInManager.PasswordSignInAsync(
+                var result = await _signInManager.PasswordSignInAsync(
                     model.Email,
-                    model.Password, 
-                    model.RememberMe, 
+                    model.Password,
+                    model.RememberMe,
                     false);
 
                 if (result.Succeeded)
@@ -120,7 +112,8 @@ namespace WebAdvert.Web.Controllers
 
         public async Task<IActionResult> Signout()
         {
-            if (User.Identity.IsAuthenticated) await signInManager.SignOutAsync().ConfigureAwait(false);
+            if (User.Identity.IsAuthenticated) await _signInManager.SignOutAsync().ConfigureAwait(false);
+
             return RedirectToAction("Login");
         }
     }

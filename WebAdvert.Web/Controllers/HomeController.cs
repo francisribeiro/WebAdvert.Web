@@ -1,33 +1,52 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using AutoMapper;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Diagnostics;
 using WebAdvert.Web.Models;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using WebAdvert.Web.Models.Home;
+using System.Collections.Generic;
+using WebAdvert.Web.ServiceClients;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebAdvert.Web.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
+        public ISearchApiClient _searchApiClient { get; }
+        public IMapper _mapper { get; }
+        public IAdvertApiClient _apiClient { get; }
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ISearchApiClient searchApiClient, IMapper mapper, IAdvertApiClient apiClient)
         {
-            _logger = logger;
+            _searchApiClient = searchApiClient;
+            _mapper = mapper;
+            _apiClient = apiClient;
         }
 
         [Authorize]
-        public IActionResult Index()
+        [ResponseCache(Duration = 60)]
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var allAds = await _apiClient.GetAllAsync().ConfigureAwait(false);
+            var allViewModels = allAds.Select(x => _mapper.Map<IndexViewModel>(x));
+
+            return View(allViewModels);
         }
 
-        public IActionResult Privacy()
+        [HttpPost]
+        public async Task<IActionResult> Search(string keyword)
         {
-            return View();
+            var viewModel = new List<SearchViewModel>();
+            var searchResult = await _searchApiClient.Search(keyword).ConfigureAwait(false);
+
+            searchResult.ForEach(advertDoc =>
+            {
+                var viewModelItem = _mapper.Map<SearchViewModel>(advertDoc);
+                viewModel.Add(viewModelItem);
+            });
+
+            return View("Search", viewModel);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
